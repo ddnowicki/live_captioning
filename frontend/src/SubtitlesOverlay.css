@@ -1,0 +1,159 @@
+/* Clean OBS Subtitle Overlay - Stacked lines, oldest on top, newest bottom */
+.subtitle-overlay {
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 40px 100px 40px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  z-index: 9999;
+}
+
+/* Connection status - small and unobtrusive */
+.connection-status {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: pulse 2s infinite;
+}
+
+.waiting-status {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: rgba(102, 126, 234, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: subtlePulse 3s infinite;
+}
+
+/* Stacked subtitle list container */
+.subtitle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(92vw, 1400px);
+}
+
+/* Individual subtitle lines. Newest line should POP, older get smaller/faded */
+.subtitle-line {
+  background: rgba(0, 0, 0, 0.92);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+  text-shadow: 2px 2px 4px rgba(0,0,0,1);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+  word-wrap: break-word;
+  transition: all 0.25s ease;
+}
+
+/* Visual hierarchy by age from newest (0) to older (3) */
+.subtitle-line.age-3 { opacity: 0.55; font-size: 26px; border-width: 2px; }
+.subtitle-line.age-2 { opacity: 0.7;  font-size: 30px; border-width: 2.5px; }
+.subtitle-line.age-1 { opacity: 0.85; font-size: 34px; }
+.subtitle-line.age-0 { opacity: 1;    font-size: 40px; border-color: #fff; }
+
+/* Entrance animation for each new line */
+.subtitle-line { animation: slideUp 0.25s ease-out; }
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtlePulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Responsive design for different streaming resolutions */
+@media (max-width: 1920px) {
+  .subtitle-overlay {
+    padding: 0 50px 120px 50px;
+  }
+  .subtitle-line.age-0 { font-size: 38px; }
+}
+
+@media (max-width: 1280px) {
+  .subtitle-overlay {
+    padding: 0 40px 100px 40px;
+  }
+  .subtitle-line.age-0 { font-size: 34px; }
+}
+
+@media (max-width: 854px) {
+  .subtitle-overlay {
+    padding: 0 30px 80px 30px;
+  }
+  .subtitle-line.age-0 { font-size: 30px; }
+}
+
+@media (max-height: 480px) {
+  .subtitle-overlay {
+    padding: 0 20px 60px 20px;
+  }
+  .subtitle-line.age-0 { font-size: 28px; }
+}
+
+/* Special styles for transparent background capture */
+body.obs-overlay {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
+  overflow: hidden !important;
+}
+
+body.obs-overlay * {
+  box-sizing: border-box;
+}
+
+body.obs-overlay #root {
+  background: transparent !important;
+  width: 100vw;
+  height: 100vh;
+}

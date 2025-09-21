@@ -1,0 +1,37 @@
+version: '3.9'
+
+services:
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      # Frontend connects to backend API via internal network (service name and internal port)
+      - REACT_APP_WS_URL=ws://api:3001
+    ports:
+      - "60004:3000"  # Public access on 60004, internal on 3000
+    depends_on:
+      - api
+    networks:
+      - live-captioning-network
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "60005:3001"  # Public access on 60005, internal on 3001
+    networks:
+      - live-captioning-network
+
+networks:
+  live-captioning-network:
+    driver: bridge
+    name: live-captioning-net
