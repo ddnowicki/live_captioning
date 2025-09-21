@@ -18,9 +18,9 @@ This project ships with Docker for easy deployment.
    ```
 
 3. **Access the application:**
-   - Frontend runs on port 3000
-   - Backend API/WebSocket runs on port 3001
-   - Frontend connects to backend via WebSocket on port 3001
+   - Frontend accessible at port 60004
+   - Backend runs internally (not publicly accessible)
+   - Frontend connects to backend via internal Docker network
 
 4. **Stop services:**
    ```bash

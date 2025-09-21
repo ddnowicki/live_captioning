@@ -26,8 +26,7 @@ services:
       - PORT=3001
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-    ports:
-      - "60005:3001"  # Public access on 60005, internal on 3001
+    # No public port exposure - only accessible via internal network
     networks:
       - live-captioning-network
 
