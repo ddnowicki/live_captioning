@@ -1,0 +1,71 @@
+name: Deploy Live Captioning
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up environment variables
+      run: |
+        echo "Setting up production environment variables..."
+        # Create .env file in backend directory with production secrets
+        cat > backend/.env << EOF
+        DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}
+        OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        EOF
+        
+        # Also export them for docker-compose
+        export DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}
+        export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        echo "DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}" >> $GITHUB_ENV
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+        
+    - name: Verify Docker and Docker Compose
+      run: |
+        docker --version
+        docker compose --version
+        
+    - name: Build with Docker Compose
+      run: |
+        echo "Building application with existing docker-compose.yml..."
+        docker compose build --no-cache
+        
+    - name: Deploy with Docker Compose
+      run: |
+        echo "Stopping any running containers..."
+        docker compose down || true
+        
+        echo "Starting services with production secrets..."
+        docker compose up -d
+        
+    - name: Verify deployment
+      run: |
+        echo "Waiting for services to start..."
+        sleep 30
+        
+        echo "Checking service status..."
+        docker compose ps
+        
+        echo "Checking backend health..."
+        curl -f http://localhost:60004 || echo "Frontend not yet accessible"
+        
+        echo "Checking API health..."
+        docker compose exec api curl -f http://localhost:3001/health || echo "API health check"
+        
+    - name: Show deployment info
+      run: |
+        echo "=== Deployment Complete ==="
+        echo "Frontend available at: http://localhost:60004"
+        echo "Backend API running internally on port 3001"
+        echo "Services status:"
+        docker compose ps

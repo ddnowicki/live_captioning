@@ -76,6 +76,9 @@ public
 tmp/
 temp/
 
+# Test scripts
+test-pipeline.sh
+
 # IDE files
 .idea/
 

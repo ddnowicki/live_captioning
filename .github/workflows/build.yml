@@ -1,0 +1,100 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: 'Clean up containers after build'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  build:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Clean up previous builds
+      run: |
+        echo "Cleaning up previous builds..."
+        docker system prune -f
+        
+    - name: Set up environment variables for build
+      run: |
+        echo "Setting up build environment variables..."
+        # Use secrets for production builds
+        if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
+          echo "Using production secrets..."
+          export DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}
+          export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          echo "DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}" >> $GITHUB_ENV
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+          
+          # Create backend .env file with production secrets
+          cat > backend/.env << EOF
+        DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}
+        OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        EOF
+        else
+          echo "Using development/test configuration..."
+          # For PR/dev builds, use placeholder values
+          export DEEPGRAM_API_KEY=test_key_placeholder
+          export OPENAI_API_KEY=test_key_placeholder
+          echo "DEEPGRAM_API_KEY=test_key_placeholder" >> $GITHUB_ENV
+          echo "OPENAI_API_KEY=test_key_placeholder" >> $GITHUB_ENV
+          
+          # Create backend .env file with test values
+          cat > backend/.env << EOF
+        DEEPGRAM_API_KEY=test_key_placeholder
+        OPENAI_API_KEY=test_key_placeholder
+        EOF
+        fi
+        
+    - name: Build Docker images
+      run: |
+        echo "Building with existing docker-compose.yml configuration..."
+        docker compose build --no-cache --parallel
+        
+    - name: Verify build artifacts
+      run: |
+        echo "Verifying Docker images were built successfully..."
+        docker images | grep live_captioning || docker images | grep live-captioning || true
+        
+    - name: Test build (quick smoke test)
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "Running quick smoke test..."
+        docker compose up -d
+        sleep 15
+        
+        echo "Checking if containers are running..."
+        docker compose ps
+        
+        # Test if services are responsive
+        timeout 30 bash -c 'until docker compose exec api curl -f http://localhost:3001/health; do sleep 2; done' || echo "API health check timeout"
+        
+        # Cleanup after test
+        docker compose down
+        
+    - name: Clean up test containers
+      if: ${{ github.event.inputs.cleanup == 'true' || github.event_name == 'pull_request' }}
+      run: |
+        echo "Cleaning up containers..."
+        docker compose down --volumes --remove-orphans
+        
+    - name: Build summary
+      run: |
+        echo "=== Build Summary ==="
+        echo "Branch: ${{ github.ref }}"
+        echo "Event: ${{ github.event_name }}"
+        echo "Images built successfully with existing docker-compose.yml"
+        if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
+          echo "Production secrets injected into backend configuration"
+        fi

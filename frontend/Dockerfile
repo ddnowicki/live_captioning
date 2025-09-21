@@ -1,9 +1,6 @@
 # Build and run React dev server
 FROM node:20-alpine
 
-# Install libc6-compat for some native deps (optional)
-RUN apk add --no-cache libc6-compat
-
 WORKDIR /app
 
 # Install deps first (cache layer)
