@@ -1,0 +1,36 @@
+# Multi-stage build for production React app
+FROM node:20-alpine AS build
+
+# Install libc6-compat for some native deps (optional)
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Install deps first (cache layer)
+COPY package.json package-lock.json* .npmrc* ./
+RUN npm ci --only=production
+
+# Copy source
+COPY public ./public
+COPY src ./src
+
+# Build the app for production
+RUN npm run build
+
+# Production stage - serve with minimal nginx
+FROM nginx:alpine AS production
+
+# Copy built app to nginx html directory
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port 3000 instead of default 80
+EXPOSE 3000
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -nv -t1 --spider 'http://localhost:3000/' || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

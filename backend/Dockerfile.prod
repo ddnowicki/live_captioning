@@ -1,0 +1,35 @@
+# Production Node API for live transcription
+FROM node:20-alpine AS production
+
+# Create app user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodeuser -u 1001
+
+WORKDIR /app
+
+# Install wget for health checks (curl alternative that's more commonly available)
+RUN apk update && apk add --no-cache wget
+
+# Install deps with production optimizations
+COPY package.json package-lock.json* .npmrc* ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy server code
+COPY server.js ./
+
+# Change ownership to non-root user
+RUN chown -R nodeuser:nodejs /app
+USER nodeuser
+
+EXPOSE 3001
+
+# Environment variables for production
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3001
+
+# Health check using wget
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -nv -t1 --spider 'http://localhost:3001/health' || exit 1
+
+CMD ["node", "server.js"]

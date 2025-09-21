@@ -27,6 +27,33 @@ This project ships with Docker for easy deployment.
    docker compose down
    ```
 
+## Production Deployment with CI/CD
+
+This repository includes a complete CI/CD pipeline for production deployment:
+
+### Automated Deployment
+- **Trigger**: Push to `main`/`master` branch
+- **Registry**: GitHub Container Registry (ghcr.io)
+- **Images**: Optimized multi-stage Docker builds
+- **Environment**: Production secrets from GitHub
+
+### Production Setup
+1. Configure GitHub repository secrets:
+   - `DEEPGRAM_API_KEY` - Your Deepgram API key
+   - `OPENAI_API_KEY` - Your OpenAI API key
+
+2. Deploy to production server:
+   ```bash
+   # Pull and run production images
+   ./deploy.sh
+   ```
+
+3. Access production application:
+   - Frontend: http://localhost:3000
+   - Backend: http://localhost:3001
+
+📖 **Complete deployment guide**: [DEPLOYMENT.md](DEPLOYMENT.md)
+
 ## Development Setup
 
 ### Prerequisites

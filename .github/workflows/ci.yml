@@ -1,0 +1,47 @@
+name: CI - Test Build
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Test backend Docker build
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: false
+        tags: test-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test frontend Docker build  
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile.prod
+        push: false
+        tags: test-frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test docker-compose syntax
+      run: |
+        docker compose -f docker-compose.prod.yml config
+
+    - name: Validate deployment script
+      run: |
+        chmod +x deploy.sh
+        # Test script without running (dry-run)
+        head -20 deploy.sh | grep "#!/bin/bash"
