@@ -77,8 +77,8 @@ jobs:
         # Check frontend accessibility
         echo "Checking frontend health..."
         for i in {1..10}; do
-          if curl -f -s http://localhost:60004 > /dev/null; then
-            echo "✅ Frontend is accessible at http://localhost:60004"
+          if curl -f -s http://localhost:60005 > /dev/null; then
+            echo "✅ Frontend is accessible at http://localhost:60005"
             break
           fi
           echo "Waiting for frontend... (attempt $i/10)"
@@ -102,7 +102,7 @@ jobs:
         echo "=== Deployment Verification ==="
         echo "✅ Production deployment completed successfully!"
         echo ""
-        echo "🌐 Frontend URL: http://localhost:60004"
+        echo "🌐 Frontend URL: http://localhost:60005"
         echo "🔧 Backend API: Internal (port 3001)"
         echo "🐳 Docker network: live-captioning-net"
         echo ""

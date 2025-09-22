@@ -53,7 +53,7 @@ The workflows are configured to run on `self-hosted` runners. Ensure your runner
 - Docker Compose v2 installed
 - Network access for pulling images and accessing APIs
 - Sufficient disk space for building images
-- Port 60004 available for frontend access
+- Port 60005 available for frontend access
 
 ## Usage
 

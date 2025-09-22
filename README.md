@@ -18,7 +18,7 @@ This project ships with Docker for easy deployment.
    ```
 
 3. **Access the application:**
-   - Frontend accessible at port 60004
+   - Frontend accessible at port 60005
    - Backend runs internally (not publicly accessible)
    - Frontend connects to backend via internal Docker network
 
@@ -145,7 +145,7 @@ live_captioning/
 
 ### Docker Issues
 - Ensure Docker is running
-- Check port availability (8004, 8005)
+- Check port availability (60005, 3001)
 - Verify environment variables are set
 
 ### Browser Issues

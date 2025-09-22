@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
@@ -57,7 +57,7 @@ jobs:
         docker compose ps
         
         echo "Checking backend health..."
-        curl -f http://localhost:60004 || echo "Frontend not yet accessible"
+        curl -f http://localhost:60005 || echo "Frontend not yet accessible"
         
         echo "Checking API health..."
         docker compose exec api curl -f http://localhost:3001/health || echo "API health check"
@@ -65,7 +65,7 @@ jobs:
     - name: Show deployment info
       run: |
         echo "=== Deployment Complete ==="
-        echo "Frontend available at: http://localhost:60004"
+        echo "Frontend available at: http://localhost:60005"
         echo "Backend API running internally on port 3001"
         echo "Services status:"
         docker compose ps
