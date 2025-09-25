@@ -47,15 +47,20 @@ jobs:
       run: |
         echo "Stopping existing services gracefully..."
         docker compose down --timeout 30 || true
+
+        echo "Removing old images to force fresh rebuild..."
+        docker compose down --rmi all || true
         
     - name: Build production images
       run: |
         echo "Building production images using existing docker-compose.yml..."
-        BUILD_ARGS=""
+        BUILD_ARGS="--no-cache"
         if [[ "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
-          BUILD_ARGS="--no-cache"
+          echo "Force rebuild requested - using --no-cache"
+        else
+          echo "Using --no-cache by default to ensure WebSocket configuration updates"
         fi
-        
+
         docker compose build $BUILD_ARGS
         
     - name: Deploy to production

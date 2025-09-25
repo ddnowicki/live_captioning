@@ -20,6 +20,17 @@ const App = () => {
 
   // WebSocket connection
   const connectWebSocket = useCallback(() => {
+    // Debug: Log all available environment variables
+    console.log('=== WebSocket Connection Debug Info ===');
+    console.log('REACT_APP_WS_URL:', process.env.REACT_APP_WS_URL);
+    console.log('REACT_APP_WS_PORT:', process.env.REACT_APP_WS_PORT);
+    console.log('Current hostname:', window.location.hostname);
+    console.log('Current protocol:', window.location.protocol);
+    console.log('All REACT_APP_ env vars:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')).reduce((obj, key) => {
+      obj[key] = process.env[key];
+      return obj;
+    }, {}));
+
     // Priority: Use explicit URL from env, then fallback to dynamic construction
     const envUrl = process.env.REACT_APP_WS_URL;
 
@@ -27,7 +38,7 @@ const App = () => {
     if (envUrl) {
       // Use explicit URL from environment (Docker internal communication)
       wsUrl = envUrl;
-      console.log('Using WebSocket URL from environment:', wsUrl);
+      console.log('✅ Using WebSocket URL from environment:', wsUrl);
     } else {
       // Fallback: Build dynamic URL for local development
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -35,8 +46,9 @@ const App = () => {
       const envPort = process.env.REACT_APP_WS_PORT;
       const wsPort = envPort || '3001';
       wsUrl = `${protocol}//${host}:${wsPort}`;
-      console.log('Using dynamic WebSocket URL:', wsUrl);
+      console.log('⚠️ Using dynamic WebSocket URL (env var not found):', wsUrl);
     }
+    console.log('=== End Debug Info ===');
 
     wsRef.current = new WebSocket(wsUrl);
 
