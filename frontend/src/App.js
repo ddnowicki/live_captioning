@@ -34,8 +34,8 @@ const App = () => {
 
     // Check if we're running in production (HTTPS) or development
     if (window.location.protocol === 'https:') {
-      // HTTPS: Use WSS with same hostname but port 60006
-      wsUrl = `wss://${host}:60006`;
+      // HTTPS: Use WSS with same hostname and default SSL port (443) with /ws path
+      wsUrl = `wss://${host}/ws`;
       console.log('🔒 HTTPS detected - Using WSS connection:', wsUrl);
     } else if (host === 'localhost' || host === '127.0.0.1') {
       // Local development: Direct connection to localhost
