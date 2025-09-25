@@ -120,12 +120,23 @@ const SubtitlesOverlay = () => {
 
     console.log(`Attempting WebSocket connection (attempt ${reconnectAttempts.current + 1})`);
 
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.hostname;
-  const envUrl = process.env.REACT_APP_WS_URL; // explicit override if provided
-  const envPort = process.env.REACT_APP_WS_PORT; // optional port override
-  const wsPort = envPort || '3001';
-  const wsUrl = envUrl || `${protocol}//${host}:${wsPort}`;
+    // Priority: Use explicit URL from env, then fallback to dynamic construction
+    const envUrl = process.env.REACT_APP_WS_URL;
+
+    let wsUrl;
+    if (envUrl) {
+      // Use explicit URL from environment (Docker internal communication)
+      wsUrl = envUrl;
+      console.log('Using WebSocket URL from environment:', wsUrl);
+    } else {
+      // Fallback: Build dynamic URL for local development
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      const envPort = process.env.REACT_APP_WS_PORT;
+      const wsPort = envPort || '3001';
+      wsUrl = `${protocol}//${host}:${wsPort}`;
+      console.log('Using dynamic WebSocket URL:', wsUrl);
+    }
 
     try {
       wsRef.current = new WebSocket(wsUrl);

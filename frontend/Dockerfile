@@ -17,8 +17,8 @@ EXPOSE 3000
 # Default envs for CRA
 ENV HOST=0.0.0.0
 ENV PORT=3000
-# Point client to API ws default (can override via compose)
-ENV REACT_APP_WS_PORT=3001
+# Default WebSocket URL for Docker internal communication
+ENV REACT_APP_WS_URL=ws://api:3001
 
 # Start React dev server
 CMD ["npm", "start"]
