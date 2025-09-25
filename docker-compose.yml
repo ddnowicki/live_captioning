@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   web:
     build:
@@ -11,7 +9,7 @@ services:
       # Frontend connects to backend API via internal network (service name and internal port)
       - REACT_APP_WS_URL=ws://api:3001
     ports:
-      - "60004:3000"  # Public access on 60004, internal on 3000
+      - "60005:3000"  # Public access on 60005, internal on 3000
     depends_on:
       - api
     networks:

@@ -66,7 +66,9 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public folder is used by Gatsby, but we need frontend/public for React
+build/public
+dist/public
 
 # Storybook build outputs
 .out
@@ -75,6 +77,9 @@ public
 # Temporary folders
 tmp/
 temp/
+
+# Test scripts
+test-pipeline.sh
 
 # IDE files
 .idea/

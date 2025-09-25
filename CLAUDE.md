@@ -64,8 +64,8 @@ The application consists of:
 - Responsive React UI
 
 ### Configuration
-- Web UI: localhost:8004 (development) / localhost:8004 (Docker)
-- API/WebSocket: localhost:8005 (Docker)
+- Web UI: localhost:60005 (Docker)
+- API/WebSocket: localhost:3001 (Docker)
 - Auto-detection of WebSocket URLs in client
 
 ## Dependencies
