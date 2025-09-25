@@ -20,16 +20,9 @@ This project ships with Docker for easy deployment.
 3. **Access the application:**
    - Frontend accessible at port 60005
    - Backend WebSocket accessible at port 60006
-   - WebSocket connections use configurable server IP (see below for custom configuration)
+   - Frontend automatically connects to backend WebSocket using the same server IP
 
-4. **Custom configuration for reverse proxy setups:**
-   If your app is deployed behind a reverse proxy or accessed via a public domain while the backend runs on an internal IP:
-   ```bash
-   # Set the internal server IP for WebSocket connections
-   echo "INTERNAL_SERVER_IP=your.internal.ip" >> .env
-   ```
-
-5. **Stop services:**
+4. **Stop services:**
    ```bash
    docker compose down
    ```

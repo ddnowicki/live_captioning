@@ -6,9 +6,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3000
-      # Configure WebSocket to connect to internal server IP
-      # User can override this by setting INTERNAL_SERVER_IP env variable
-      - REACT_APP_WS_URL=ws://${INTERNAL_SERVER_IP:-10.251.253.1}:60006
+      # Remove hardcoded WS URL to allow dynamic construction based on browser location
+      - REACT_APP_WS_PORT=60006
     ports:
       - "60005:3000"  # Public access on 60005, internal on 3000
     depends_on:
@@ -26,7 +25,7 @@ services:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
-      - "60006:3001"  # Expose WebSocket on internal network
+      - "60006:3001"  # Expose WebSocket port externally
     networks:
       - live-captioning-network
 
