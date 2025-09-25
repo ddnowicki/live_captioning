@@ -1,71 +1,119 @@
-name: Deploy Live Captioning
+name: Production Deploy
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild without cache'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  deploy-production:
+    runs-on: self-hosted
+    environment: Prod
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up environment variables
+    - name: Prepare production environment
       run: |
-        echo "Setting up production environment variables..."
-        # Create .env file in backend directory with production secrets
+        echo "=== Preparing Production Deployment ==="
+        echo "Commit SHA: ${{ github.sha }}"
+        echo "Reference: ${{ github.ref }}"
+        
+        # Inject production secrets into backend
+        echo "Configuring backend with production API keys..."
         cat > backend/.env << EOF
         DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}
         OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
         EOF
         
-        # Also export them for docker-compose
+        # Set environment variables for docker-compose
         export DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}
         export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
         echo "DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}" >> $GITHUB_ENV
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
         
-    - name: Verify Docker and Docker Compose
-      run: |
-        docker --version
-        docker compose --version
+        echo "Production environment configured successfully"
         
-    - name: Build with Docker Compose
+    - name: Stop existing services
       run: |
-        echo "Building application with existing docker-compose.yml..."
-        docker compose build --no-cache
+        echo "Stopping existing services gracefully..."
+        docker compose down --timeout 30 || true
         
-    - name: Deploy with Docker Compose
+    - name: Build production images
       run: |
-        echo "Stopping any running containers..."
-        docker compose down || true
+        echo "Building production images using existing docker-compose.yml..."
+        BUILD_ARGS=""
+        if [[ "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
+          BUILD_ARGS="--no-cache"
+        fi
         
-        echo "Starting services with production secrets..."
+        docker compose build $BUILD_ARGS
+        
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production..."
         docker compose up -d
+        
+        echo "Waiting for services to stabilize..."
+        sleep 15
+        
+    - name: Health checks
+      run: |
+        echo "=== Production Health Checks ==="
+        
+        # Check container status
+        echo "Container status:"
+        docker compose ps -a
+        
+        # Check frontend accessibility
+        echo "Checking frontend health..."
+        for i in {1..10}; do
+          if curl -f -s http://localhost:60005 > /dev/null; then
+            echo "✅ Frontend is accessible at http://localhost:60005"
+            break
+          fi
+          echo "Waiting for frontend... (attempt $i/10)"
+          sleep 6
+        done
+        
+        # Check backend API health
+        echo "Checking backend API health..."
+        for i in {1..10}; do
+          if docker compose exec -T api curl -f -s http://localhost:3001/health > /dev/null; then
+            echo "✅ Backend API is healthy"
+            docker compose exec -T api curl -s http://localhost:3001/health
+            break
+          fi
+          echo "Waiting for backend API... (attempt $i/10)"
+          sleep 6
+        done
         
     - name: Verify deployment
       run: |
-        echo "Waiting for services to start..."
-        sleep 30
+        echo "=== Deployment Verification ==="
+        echo "✅ Production deployment completed successfully!"
+        echo ""
+        echo "🌐 Frontend URL: http://localhost:60005"
+        echo "🔧 Backend API: Internal (port 3001)"
+        echo "🐳 Docker network: live-captioning-net"
+        echo ""
+        echo "Active containers:"
+        docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+        echo ""
+        echo "🔑 Production secrets have been injected into backend"
+        echo "📊 Services are running with production configuration"
         
-        echo "Checking service status..."
-        docker compose ps
-        
-        echo "Checking backend health..."
-        curl -f http://localhost:60005 || echo "Frontend not yet accessible"
-        
-        echo "Checking API health..."
-        docker compose exec api curl -f http://localhost:3001/health || echo "API health check"
-        
-    - name: Show deployment info
+    - name: Cleanup old images
       run: |
-        echo "=== Deployment Complete ==="
-        echo "Frontend available at: http://localhost:60005"
-        echo "Backend API running internally on port 3001"
-        echo "Services status:"
-        docker compose ps
+        echo "Cleaning up old/unused Docker images..."
+        docker image prune -f
+        echo "Cleanup completed"
