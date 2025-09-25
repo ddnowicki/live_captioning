@@ -6,8 +6,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3000
-      # Remove hardcoded WS URL to allow dynamic construction based on browser location
-      - REACT_APP_WS_PORT=60006
+      # Use internal Docker service name for WebSocket connection
+      - REACT_APP_WS_URL=ws://api:3001
     ports:
       - "60005:3000"  # Public access on 60005, internal on 3000
     depends_on:
@@ -24,8 +24,7 @@ services:
       - PORT=3001
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-    ports:
-      - "60006:3001"  # Expose WebSocket port externally
+    # No external port exposure - only accessible from within Docker network
     networks:
       - live-captioning-network
 
