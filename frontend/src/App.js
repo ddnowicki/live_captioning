@@ -23,30 +23,28 @@ const App = () => {
     // Debug: Log all available environment variables
     console.log('=== WebSocket Connection Debug Info ===');
     console.log('REACT_APP_WS_URL:', process.env.REACT_APP_WS_URL);
-    console.log('REACT_APP_WS_PORT:', process.env.REACT_APP_WS_PORT);
     console.log('Current hostname:', window.location.hostname);
     console.log('Current protocol:', window.location.protocol);
-    console.log('All REACT_APP_ env vars:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')).reduce((obj, key) => {
-      obj[key] = process.env[key];
-      return obj;
-    }, {}));
+    console.log('Current port:', window.location.port);
 
-    // Priority: Use explicit URL from env, then fallback to dynamic construction
-    const envUrl = process.env.REACT_APP_WS_URL;
-
+    // Smart WebSocket URL construction
     let wsUrl;
-    if (envUrl) {
-      // Use explicit URL from environment (Docker internal communication)
-      wsUrl = envUrl;
-      console.log('✅ Using WebSocket URL from environment:', wsUrl);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+
+    // Check if we're running in production (HTTPS) or development
+    if (window.location.protocol === 'https:') {
+      // HTTPS: Use WSS with same hostname but port 60006
+      wsUrl = `wss://${host}:60006`;
+      console.log('🔒 HTTPS detected - Using WSS connection:', wsUrl);
+    } else if (host === 'localhost' || host === '127.0.0.1') {
+      // Local development: Direct connection to localhost
+      wsUrl = `ws://localhost:60006`;
+      console.log('💻 Local development - Using localhost WebSocket:', wsUrl);
     } else {
-      // Fallback: Build dynamic URL for local development
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname;
-      const envPort = process.env.REACT_APP_WS_PORT;
-      const wsPort = envPort || '3001';
-      wsUrl = `${protocol}//${host}:${wsPort}`;
-      console.log('⚠️ Using dynamic WebSocket URL (env var not found):', wsUrl);
+      // HTTP production (local network): Use server IP
+      wsUrl = `ws://${host}:60006`;
+      console.log('🌐 HTTP production - Using server WebSocket:', wsUrl);
     }
     console.log('=== End Debug Info ===');
 
