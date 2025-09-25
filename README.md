@@ -19,8 +19,8 @@ This project ships with Docker for easy deployment.
 
 3. **Access the application:**
    - Frontend accessible at port 60005
-   - Backend runs internally (not publicly accessible)
-   - Frontend connects to backend via internal Docker network
+   - Backend WebSocket accessible at port 60006
+   - Frontend automatically connects to backend WebSocket using the same server IP
 
 4. **Stop services:**
    ```bash
@@ -145,7 +145,7 @@ live_captioning/
 
 ### Docker Issues
 - Ensure Docker is running
-- Check port availability (60005, 3001)
+- Check port availability (60005 for frontend, 60006 for WebSocket)
 - Verify environment variables are set
 
 ### Browser Issues
