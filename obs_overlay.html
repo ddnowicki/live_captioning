@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Captions Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: transparent;
+            color: white;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-start;
+            overflow: hidden;
+            padding: 30px;
+        }
+
+        #captions-container {
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6));
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px 25px;
+            min-width: 700px;
+            max-width: 700px;
+            max-height: 50%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .sentence-block {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sentence-block:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .sentence-block:first-child {
+            padding-top: 0;
+        }
+
+        .sentence-block.interim {
+            opacity: 0.7;
+        }
+
+        .sentence-line {
+            display: flex;
+            align-items: flex-start;
+            margin: 2px 0;
+            line-height: 1.4;
+            width: 100%;
+        }
+
+        .language-column {
+            display: flex;
+            align-items: flex-start;
+            width: 50%;
+            padding: 0 10px;
+        }
+
+        .language-column:first-child {
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .flag {
+            font-size: 18px;
+            margin-right: 12px;
+            flex-shrink: 0;
+            opacity: 0.9;
+        }
+
+        .text {
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 0.2px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            flex: 1;
+        }
+
+        .translation {
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 300;
+        }
+
+        /* Scrollbar styling */
+        #captions-container::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="captions-container"></div>
+
+    <script>
+        const captionsContainer = document.getElementById('captions-container');
+        let sentences = [];
+        let notFinalSentences = [];
+
+        // WebSocket connection
+        let ws = null;
+        let reconnectTimeout = null;
+
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:8765');
+
+            ws.onopen = () => {
+                console.log('Connected to transcription service');
+                clearTimeout(reconnectTimeout);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'update') {
+                    sentences = data.sentences || [];
+                    notFinalSentences = data.not_final_sentences || [];
+                    updateDisplay();
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected from transcription service');
+                // Clear the display
+                captionsContainer.innerHTML = '';
+                // Reconnect after 2 seconds
+                reconnectTimeout = setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function updateDisplay() {
+            // Clear container
+            captionsContainer.innerHTML = '';
+
+            // Create array of all sentences to display (oldest to newest)
+            const allSentences = [];
+
+            // Add final sentences (oldest first)
+            sentences.forEach(sentObj => {
+                allSentences.push({
+                    sentence: sentObj.sentence,
+                    translation: sentObj.tr_sentence || 'Translating...',
+                    isFinal: true
+                });
+            });
+
+            // Add interim sentences (newest at bottom)
+            notFinalSentences.forEach(sentObj => {
+                allSentences.push({
+                    sentence: sentObj.sentence,
+                    translation: sentObj.tr_sentence || 'Translating...',
+                    isFinal: false
+                });
+            });
+
+            // Display sentences (they stack from bottom up due to flex-end)
+            allSentences.forEach(item => {
+                const block = createSentenceBlock(item);
+                captionsContainer.appendChild(block);
+            });
+        }
+
+        function createSentenceBlock(item) {
+            const block = document.createElement('div');
+            block.className = 'sentence-block' + (item.isFinal ? '' : ' interim');
+
+            // Single row with two columns
+            const sentenceLine = document.createElement('div');
+            sentenceLine.className = 'sentence-line';
+
+            // English column
+            const englishColumn = document.createElement('div');
+            englishColumn.className = 'language-column';
+
+            const gbFlag = document.createElement('span');
+            gbFlag.className = 'flag';
+            gbFlag.textContent = '🇬🇧';
+
+            const englishText = document.createElement('span');
+            englishText.className = 'text';
+            englishText.textContent = item.sentence || '';
+
+            englishColumn.appendChild(gbFlag);
+            englishColumn.appendChild(englishText);
+
+            // Polish column
+            const polishColumn = document.createElement('div');
+            polishColumn.className = 'language-column';
+
+            const plFlag = document.createElement('span');
+            plFlag.className = 'flag';
+            plFlag.textContent = '🇵🇱';
+
+            const polishText = document.createElement('span');
+            polishText.className = 'text translation';
+            polishText.textContent = item.translation;
+
+            polishColumn.appendChild(plFlag);
+            polishColumn.appendChild(polishText);
+
+            // Add columns to sentence line
+            sentenceLine.appendChild(englishColumn);
+            sentenceLine.appendChild(polishColumn);
+            block.appendChild(sentenceLine);
+
+            return block;
+        }
+
+        // Connect to WebSocket on load
+        connectWebSocket();
+
+        // Test data for development (remove in production)
+        if (window.location.protocol === 'file:') {
+            // Sample data for testing without WebSocket
+            setTimeout(() => {
+                sentences = [
+                    { sentence: "Hello, everyone.", tr_sentence: "Witajcie wszyscy." },
+                    { sentence: "How are you doing today?", tr_sentence: "Jak się dzisiaj macie?" }
+                ];
+                notFinalSentences = [
+                    { sentence: "This is being spoken right now", tr_sentence: null }
+                ];
+                updateDisplay();
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

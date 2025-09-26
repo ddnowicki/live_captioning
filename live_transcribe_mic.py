@@ -8,7 +8,9 @@ import re
 import os
 import sys
 import asyncio
+import json
 import pyaudio
+import websockets
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from deepgram import (
@@ -20,9 +22,9 @@ from deepgram import (
 class Sentence:
     _openai_client = None
 
-    def __init__(self, sentence: str):
+    def __init__(self, sentence: str, initial_translation: str = None):
         self._sentence = sentence
-        self._tr_sentence = None
+        self._tr_sentence = initial_translation
         # Trigger translation on initialization
         asyncio.create_task(self._translate_to_polish())
 
@@ -45,7 +47,7 @@ class Sentence:
 
         try:
             response = await client.chat.completions.create(
-                model="gpt-4o",  # Using GPT-4o
+                model="gpt-4o-realtime-preview",  # Using GPT-4o
                 messages=[
                     {"role": "system", "content": "Translate the following English text to Polish. Provide only the translation, no explanations."},
                     {"role": "user", "content": self._sentence}
@@ -54,6 +56,7 @@ class Sentence:
                 max_tokens=200
             )
             self._tr_sentence = response.choices[0].message.content.strip()
+            asyncio.create_task(broadcast_update())
         except Exception as e:
             print(f"Translation error: {e}")
 
@@ -73,6 +76,43 @@ class Sentence:
 
 sentences = []
 not_final_sentences = []
+connected_clients = set()
+
+async def broadcast_update():
+    """Broadcast current sentences to all connected WebSocket clients"""
+    if connected_clients:
+        message = json.dumps({
+            'type': 'update',
+            'sentences': [
+                {'sentence': s.sentence, 'tr_sentence': s.tr_sentence}
+                for s in sentences
+            ],
+            'not_final_sentences': [
+                {'sentence': s.sentence, 'tr_sentence': s.tr_sentence}
+                for s in not_final_sentences
+            ]
+        })
+        disconnected = set()
+        for client in connected_clients:
+            try:
+                await client.send(message)
+            except:
+                disconnected.add(client)
+        connected_clients.difference_update(disconnected)
+
+async def websocket_handler(websocket):
+    """Handle WebSocket connections from OBS overlay"""
+    connected_clients.add(websocket)
+    print(f"Client connected. Total clients: {len(connected_clients)}")
+
+    try:
+        # Send initial data
+        await broadcast_update()
+        # Keep connection alive
+        await websocket.wait_closed()
+    finally:
+        connected_clients.remove(websocket)
+        print(f"Client disconnected. Total clients: {len(connected_clients)}")
 
 def split_keep_delimiter(text, delimiters):
     """Split text by delimiters while keeping delimiters attached to sentences."""
@@ -172,6 +212,7 @@ class MicrophoneTranscriber:
             # Define event handlers
             async def on_message(_, result):
                 """Handle transcription results."""
+                global sentences, not_final_sentences
                 if result is None:
                     return
                     
@@ -186,6 +227,7 @@ class MicrophoneTranscriber:
                 speech_final = result.speech_final if hasattr(result, 'speech_final') else False
                 
                 if is_final:
+                    not_final_sentences = []
                     # Clear any interim output and print final
                     # print(f"\r{' ' * 80}\r", end="")  # Clear the line
                     # print(f"➤ {sentence}")
@@ -196,28 +238,25 @@ class MicrophoneTranscriber:
                         if sentences and len(sentences) > 0:
                             last_sentence = sentences[-1]
                             if last_sentence.sentence and not last_sentence.sentence.endswith(('.', '?', ';', '!', ':')):
-                                # Merge with previous incomplete sentence
-                                sentences[-1].sentence = last_sentence.sentence + ' ' + part
+                                # Merge with previous incomplete sentence, preserve translation
+                                old_translation = last_sentence.tr_sentence + '...' if last_sentence.tr_sentence is not None else None
+                                merged_text = last_sentence.sentence + ' ' + part
+                                sentences[-1] = Sentence(merged_text, old_translation)
+                            elif last_sentence.sentence and len(last_sentence.sentence) < 80:
+                                # Merge with previous too short sentence, preserve translation
+                                old_translation = last_sentence.tr_sentence + '...' if last_sentence.tr_sentence is not None else None
+                                merged_text = last_sentence.sentence + ' ' + part
+                                sentences[-1] = Sentence(merged_text, old_translation)
                             else:
                                 sentences.append(Sentence(part))
                         else:
                             sentences.append(Sentence(part))
-                    
-                    # # If speech_final is true, add a visual separator
-                    # if speech_final:
-                    #     print("")  # Extra newline for speech break
                 else:
-                    not_final_sentences = [Sentence(part.strip()) for part in split_keep_delimiter(sentence, ['.', '?', ';'])]
+                    var_translation = not_final_sentences[-1].tr_sentence + '...' if len(not_final_sentences) > 0 and not_final_sentences[-1].tr_sentence is not None else None
+                    not_final_sentences = [Sentence(sentence, var_translation)]
 
-
-                # clear entire terminal
-                print("\033[2J\033[H")
-                for sentence_obj in sentences:
-                    print(f"➤ {sentence_obj.sentence}")
-                    print(f"➤➤ {sentence_obj.tr_sentence}")
-                for sentence_obj in not_final_sentences:
-                    print(f"➤ {sentence_obj.sentence}")
-                    print(f"➤➤ {sentence_obj.tr_sentence}")
+                # Broadcast update to WebSocket clients (non-blocking)
+                asyncio.create_task(broadcast_update())
             
             async def on_metadata(_, metadata):
                 """Handle metadata events."""
@@ -277,10 +316,21 @@ async def main():
     """Main function to run the microphone transcriber."""
     print("Live Microphone Transcription with Deepgram")
     print("=" * 50)
-    
+    print("WebSocket server running on ws://localhost:8765")
+    print("Open obs_overlay.html in OBS Browser Source")
+    print("=" * 50)
+
+    # Start WebSocket server
+    ws_server = await websockets.serve(websocket_handler, "localhost", 8765)
+
     # Create transcriber and start transcription
     transcriber = MicrophoneTranscriber()
-    await transcriber.transcribe_microphone()
+
+    try:
+        await transcriber.transcribe_microphone()
+    finally:
+        ws_server.close()
+        await ws_server.wait_closed()
 
 if __name__ == "__main__":
     try:
