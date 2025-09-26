@@ -76,6 +76,8 @@ class Sentence:
 
 sentences = []
 not_final_sentences = []
+last_second_interim_sentence = None
+last_interim_sentence = None
 connected_clients = set()
 
 async def broadcast_update():
@@ -114,27 +116,78 @@ async def websocket_handler(websocket):
         connected_clients.remove(websocket)
         print(f"Client disconnected. Total clients: {len(connected_clients)}")
 
-def split_keep_delimiter(text, delimiters):
-    """Split text by delimiters while keeping delimiters attached to sentences."""
+def split_keep_delimiter(text, delimiters, max_merge_length=80):
+    """
+    Split text by delimiters while keeping delimiters attached to sentences.
+    Merges consecutive short sentences if their combined length is under max_merge_length.
+    
+    Args:
+        text: The text to split
+        delimiters: List of delimiter characters (e.g., ['.', '?', '!'])
+        max_merge_length: Maximum length for merged sentences (default 80)
+    
+    Returns:
+        List of sentences with smart merging of short sentences
+    """
     if not text:
         return []
 
+    # Create pattern for splitting while keeping delimiters
     pattern = f'([{re.escape("".join(delimiters))}])'
     parts = re.split(pattern, text)
 
-    # Filter out empty strings and combine parts with delimiters
-    result = []
-    for i in range(0, len(parts) - 1, 2):
+    # First pass: combine parts with their delimiters
+    initial_sentences = []
+    i = 0
+    while i < len(parts):
         sentence = parts[i]
+        # Get the delimiter if it exists
         delimiter = parts[i + 1] if i + 1 < len(parts) else ""
+        
         if sentence.strip():  # Skip empty sentences
-            result.append(sentence + delimiter)
+            combined = sentence + delimiter
+            initial_sentences.append(combined)
+        elif delimiter and initial_sentences:
+            # If we have just a delimiter after empty text, append to previous
+            initial_sentences[-1] += delimiter
+        elif delimiter:
+            # Standalone delimiter at the start
+            initial_sentences.append(delimiter)
+        
+        # Move by 2 if we have a delimiter, otherwise by 1
+        i += 2 if delimiter else 1
 
-    # Handle last part if it doesn't end with a delimiter
-    if len(parts) % 2 == 1 and parts[-1].strip():
-        result.append(parts[-1])
+    # Second pass: merge short consecutive sentences
+    if not initial_sentences:
+        return []
+    
+    merged_sentences = []
+    current_merge = initial_sentences[0]
+    
+    for next_sentence in initial_sentences[1:]:
+        # Calculate what the combined length would be
+        combined_length = len(current_merge) + len(next_sentence)
+        
+        # Check if we should merge
+        # Merge if: combined length is under threshold AND current is relatively short
+        if combined_length <= max_merge_length and len(current_merge.strip()) < max_merge_length / 2:
+            # Merge with a space if needed
+            if current_merge and not current_merge[-1].isspace() and next_sentence and not next_sentence[0].isspace():
+                current_merge += " " + next_sentence
+            else:
+                current_merge += next_sentence
+        else:
+            # Don't merge - save current and start new
+            if current_merge.strip():
+                merged_sentences.append(current_merge)
+            current_merge = next_sentence
+    
+    # Don't forget the last accumulated sentence
+    if current_merge.strip():
+        merged_sentences.append(current_merge)
+    
+    return merged_sentences
 
-    return result
 
 # Load environment variables
 load_dotenv()
@@ -212,7 +265,7 @@ class MicrophoneTranscriber:
             # Define event handlers
             async def on_message(_, result):
                 """Handle transcription results."""
-                global sentences, not_final_sentences
+                global sentences, not_final_sentences, last_second_interim_sentence, last_interim_sentence
                 if result is None:
                     return
                     
@@ -227,33 +280,38 @@ class MicrophoneTranscriber:
                 speech_final = result.speech_final if hasattr(result, 'speech_final') else False
                 
                 if is_final:
+                    print("FINAL: ", sentence)
                     not_final_sentences = []
-                    # Clear any interim output and print final
-                    # print(f"\r{' ' * 80}\r", end="")  # Clear the line
-                    # print(f"➤ {sentence}")
+         
                     parts = split_keep_delimiter(sentence, ['.', '?', ';'])
-                    for part in parts:
-                        part = part.strip()
+                    last_second_interim_sentence_parts = split_keep_delimiter(last_second_interim_sentence, ['.', '?', ';'])
+                    isSameLength = len(last_second_interim_sentence_parts) == len(parts)
+                    for i in range(len(parts)):
+                        parts[i] = parts[i].strip()
                         # Check if previous sentence ended properly, if not merge
                         if sentences and len(sentences) > 0:
                             last_sentence = sentences[-1]
                             if last_sentence.sentence and not last_sentence.sentence.endswith(('.', '?', ';', '!', ':')):
                                 # Merge with previous incomplete sentence, preserve translation
                                 old_translation = last_sentence.tr_sentence + '...' if last_sentence.tr_sentence is not None else None
-                                merged_text = last_sentence.sentence + ' ' + part
-                                sentences[-1] = Sentence(merged_text, old_translation)
-                            elif last_sentence.sentence and len(last_sentence.sentence) < 80:
-                                # Merge with previous too short sentence, preserve translation
-                                old_translation = last_sentence.tr_sentence + '...' if last_sentence.tr_sentence is not None else None
-                                merged_text = last_sentence.sentence + ' ' + part
+                                merged_text = last_sentence.sentence + ' ' + parts[i]
                                 sentences[-1] = Sentence(merged_text, old_translation)
                             else:
-                                sentences.append(Sentence(part))
+                                if isSameLength:
+                                    sentences.append(Sentence(parts[i], last_second_interim_sentence_parts[i]))
+                                else:
+                                    sentences.append(Sentence(parts[i]))
                         else:
-                            sentences.append(Sentence(part))
+                            if isSameLength:
+                                sentences.append(Sentence(parts[i], last_second_interim_sentence_parts[i]))
+                            else:
+                                sentences.append(Sentence(parts[i]))
                 else:
+                    print("INTERIM: ", sentence)
                     var_translation = not_final_sentences[-1].tr_sentence + '...' if len(not_final_sentences) > 0 and not_final_sentences[-1].tr_sentence is not None else None
                     not_final_sentences = [Sentence(sentence, var_translation)]
+                    last_second_interim_sentence = last_interim_sentence
+                    last_interim_sentence = sentence
 
                 # Broadcast update to WebSocket clients (non-blocking)
                 asyncio.create_task(broadcast_update())

@@ -74,12 +74,8 @@
         .language-column {
             display: flex;
             align-items: flex-start;
-            width: 50%;
-            padding: 0 10px;
-        }
-
-        .language-column:first-child {
-            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            padding: 0;
         }
 
         .flag {
@@ -192,22 +188,7 @@
             const sentenceLine = document.createElement('div');
             sentenceLine.className = 'sentence-line';
 
-            // English column
-            const englishColumn = document.createElement('div');
-            englishColumn.className = 'language-column';
-
-            const gbFlag = document.createElement('span');
-            gbFlag.className = 'flag';
-            gbFlag.textContent = '🇬🇧';
-
-            const englishText = document.createElement('span');
-            englishText.className = 'text';
-            englishText.textContent = item.sentence || '';
-
-            englishColumn.appendChild(gbFlag);
-            englishColumn.appendChild(englishText);
-
-            // Polish column
+            // Polish column only
             const polishColumn = document.createElement('div');
             polishColumn.className = 'language-column';
 
@@ -222,8 +203,7 @@
             polishColumn.appendChild(plFlag);
             polishColumn.appendChild(polishText);
 
-            // Add columns to sentence line
-            sentenceLine.appendChild(englishColumn);
+            // Add column to sentence line
             sentenceLine.appendChild(polishColumn);
             block.appendChild(sentenceLine);
 
@@ -242,7 +222,7 @@
                     { sentence: "How are you doing today?", tr_sentence: "Jak się dzisiaj macie?" }
                 ];
                 notFinalSentences = [
-                    { sentence: "This is being spoken right now", tr_sentence: null }
+                    { sentence: "This is being spoken right now", tr_sentence: "To jest mówione właśnie teraz" }
                 ];
                 updateDisplay();
             }, 1000);
