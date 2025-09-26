@@ -26,7 +26,7 @@
         }
 
         #captions-container {
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6));
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.95));
             backdrop-filter: blur(10px);
             border-radius: 12px;
             padding: 20px 25px;
@@ -53,6 +53,10 @@
 
         .sentence-block:first-child {
             padding-top: 0;
+        }
+
+        .sentence-block:last-child {
+            min-height: 90px;
         }
 
         .sentence-block.interim {
@@ -87,7 +91,7 @@
 
         .text {
             font-size: 16px;
-            font-weight: 400;
+            font-weight: 300;
             letter-spacing: 0.2px;
             word-wrap: break-word;
             overflow-wrap: break-word;
@@ -95,8 +99,8 @@
         }
 
         .translation {
-            color: rgba(255, 255, 255, 0.85);
-            font-weight: 300;
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 400;
         }
 
         /* Scrollbar styling */
