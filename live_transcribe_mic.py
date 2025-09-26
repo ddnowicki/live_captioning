@@ -47,7 +47,7 @@ class Sentence:
 
         try:
             response = await client.chat.completions.create(
-                model="gpt-4o",  # Using GPT-4o
+                model="gpt-4.1-nano",  # Using GPT-4o
                 messages=[
                     {"role": "system", "content": "Translate the following English text to Polish. Provide only the translation, no explanations."},
                     {"role": "user", "content": self._sentence}
