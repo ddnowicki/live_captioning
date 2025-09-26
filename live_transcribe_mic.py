@@ -37,26 +37,76 @@ class Sentence:
         return cls._openai_client
 
     async def _translate_to_polish(self):
-        """Translate sentence to Polish using GPT-4o"""
+        """Translate sentence to Polish using GPT-4o Realtime API"""
         if not self._sentence:
             return
 
-        client = self._get_openai_client()
-        if not client:
-            return  # No API key configured
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o-realtime-preview",  # Using GPT-4o
-                messages=[
-                    {"role": "system", "content": "Translate the following English text to Polish. Provide only the translation, no explanations."},
-                    {"role": "user", "content": self._sentence}
-                ],
-                temperature=0.3,
-                max_tokens=200
-            )
-            self._tr_sentence = response.choices[0].message.content.strip()
-            asyncio.create_task(broadcast_update())
+            import websockets
+            import json
+
+            url = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "OpenAI-Beta": "realtime=v1"
+            }
+
+            async with websockets.connect(url, additional_headers=headers) as websocket:
+                # Configure session for text-only mode
+                session_config = {
+                    "type": "session.update",
+                    "session": {
+                        "modalities": ["text"],
+                        "instructions": "You are a translator. Translate the following English text to Polish. Provide only the translation, no explanations.",
+                        "tools": [],
+                        "tool_choice": "auto",
+                        "temperature": 0.6,
+                        "max_response_output_tokens": 200
+                    }
+                }
+                await websocket.send(json.dumps(session_config))
+
+                # Create conversation item
+                item_create = {
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": self._sentence}]
+                    }
+                }
+                await websocket.send(json.dumps(item_create))
+
+                # Request response
+                response_create = {"type": "response.create"}
+                await websocket.send(json.dumps(response_create))
+
+                # Listen for response
+                translation_text = ""
+                while True:
+                    try:
+                        message = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                        data = json.loads(message)
+
+                        if data.get('type') == 'response.text.delta':
+                            translation_text += data.get('delta', '')
+                        elif data.get('type') == 'response.text.done':
+                            self._tr_sentence = translation_text.strip()
+                            asyncio.create_task(broadcast_update())
+                            break
+                        elif data.get('type') == 'response.done':
+                            break
+                        elif data.get('type') == 'error':
+                            print(f"Translation error: {data}")
+                            break
+                    except asyncio.TimeoutError:
+                        print("Translation timeout")
+                        break
+
         except Exception as e:
             print(f"Translation error: {e}")
 
